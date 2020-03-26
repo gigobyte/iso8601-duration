@@ -1,4 +1,4 @@
-module Iso8601.Duration exposing (Duration, fromString, parseDateElements, parseTimeElements)
+module Iso8601.Duration exposing (Duration, fromString)
 
 import Parser exposing ((|.), (|=), Parser, Step(..), end, float, loop, oneOf, problem, succeed, symbol)
 
@@ -28,14 +28,11 @@ type WeekElement
     = Weeks Float
 
 
-type DateElement
+type Element
     = Years Float
     | Months Float
     | Days Float
-
-
-type TimeElement
-    = Hours Float
+    | Hours Float
     | Minutes Float
     | Seconds Float
 
@@ -67,10 +64,10 @@ fromString duration =
             [ date, time ] ->
                 let
                     dateElements =
-                        parseDateElements date
+                        parseElements dateElementsParser date
 
                     timeElements =
-                        parseTimeElements time
+                        parseElements timeElementsParser time
                 in
                 case ( dateElements, timeElements ) of
                     ( Just [], Just [] ) ->
@@ -78,13 +75,13 @@ fromString duration =
 
                     _ ->
                         dateElements
-                            |> Maybe.map (addDateElementsToDuration initialDuration)
-                            |> (\intermediateDuration -> Maybe.map2 addTimeElementsToDuration intermediateDuration timeElements)
+                            |> Maybe.map (addElementsToDuration initialDuration)
+                            |> (\intermediateDuration -> Maybe.map2 addElementsToDuration intermediateDuration timeElements)
 
             [ date ] ->
                 let
                     dateElements =
-                        parseDateElements date
+                        parseElements dateElementsParser date
                 in
                 case dateElements of
                     Just [] ->
@@ -92,18 +89,18 @@ fromString duration =
 
                     _ ->
                         dateElements
-                            |> Maybe.map (addDateElementsToDuration initialDuration)
+                            |> Maybe.map (addElementsToDuration initialDuration)
 
             _ ->
                 Nothing
 
 
-parseDateElements : String -> Maybe (List DateElement)
-parseDateElements date =
-    Result.toMaybe (Parser.run dateElementsParser date)
+parseElements : Parser (List Element) -> String -> Maybe (List Element)
+parseElements elementParser date =
+    Result.toMaybe (Parser.run elementParser date)
         |> Maybe.andThen
             (\elements ->
-                if isOutOfOrder isValidDateElementSequence elements then
+                if isOutOfOrder isValidElementSequence elements then
                     Nothing
 
                 else
@@ -111,41 +108,10 @@ parseDateElements date =
             )
 
 
-parseTimeElements : String -> Maybe (List TimeElement)
-parseTimeElements date =
-    Result.toMaybe (Parser.run timeElementsParser date)
-        |> Maybe.andThen
-            (\elements ->
-                if isOutOfOrder isValidTimeElementSequence elements then
-                    Nothing
-
-                else
-                    Just elements
-            )
-
-
-addTimeElementsToDuration : Duration -> List TimeElement -> Duration
-addTimeElementsToDuration =
+addElementsToDuration : Duration -> List Element -> Duration
+addElementsToDuration =
     let
-        addTimeElementToDuration : TimeElement -> Duration -> Duration
-        addTimeElementToDuration element intermediateDuration =
-            case element of
-                Hours h ->
-                    { intermediateDuration | hours = h }
-
-                Minutes m ->
-                    { intermediateDuration | minutes = m }
-
-                Seconds s ->
-                    { intermediateDuration | seconds = s }
-    in
-    List.foldr addTimeElementToDuration
-
-
-addDateElementsToDuration : Duration -> List DateElement -> Duration
-addDateElementsToDuration =
-    let
-        addDateElementToDuration : DateElement -> Duration -> Duration
+        addDateElementToDuration : Element -> Duration -> Duration
         addDateElementToDuration element intermediateDuration =
             case element of
                 Years y ->
@@ -156,6 +122,15 @@ addDateElementsToDuration =
 
                 Days d ->
                     { intermediateDuration | days = d }
+
+                Hours h ->
+                    { intermediateDuration | hours = h }
+
+                Minutes m ->
+                    { intermediateDuration | minutes = m }
+
+                Seconds s ->
+                    { intermediateDuration | seconds = s }
     in
     List.foldr addDateElementToDuration
 
@@ -173,7 +148,7 @@ weekParser =
         |. end
 
 
-dateElementParser : List DateElement -> Parser (Step (List DateElement) (List DateElement))
+dateElementParser : List Element -> Parser (Step (List Element) (List Element))
 dateElementParser elements =
     oneOf
         [ succeed (\a b -> Loop (b a :: elements))
@@ -187,14 +162,14 @@ dateElementParser elements =
         ]
 
 
-dateElementsParser : Parser (List DateElement)
+dateElementsParser : Parser (List Element)
 dateElementsParser =
     succeed identity
         |. symbol "P"
         |= loop [] dateElementParser
 
 
-timeElementParser : List TimeElement -> Parser (Step (List TimeElement) (List TimeElement))
+timeElementParser : List Element -> Parser (Step (List Element) (List Element))
 timeElementParser elements =
     oneOf
         [ succeed (\a b -> Loop (b a :: elements))
@@ -208,29 +183,13 @@ timeElementParser elements =
         ]
 
 
-timeElementsParser : Parser (List TimeElement)
+timeElementsParser : Parser (List Element)
 timeElementsParser =
     loop [] timeElementParser
 
 
-isValidTimeElementSequence : TimeElement -> TimeElement -> Bool
-isValidTimeElementSequence a b =
-    case ( a, b ) of
-        ( Minutes _, Hours _ ) ->
-            True
-
-        ( Seconds _, Minutes _ ) ->
-            True
-
-        ( Seconds _, Hours _ ) ->
-            True
-
-        _ ->
-            False
-
-
-isValidDateElementSequence : DateElement -> DateElement -> Bool
-isValidDateElementSequence a b =
+isValidElementSequence : Element -> Element -> Bool
+isValidElementSequence a b =
     case ( a, b ) of
         ( Months _, Years _ ) ->
             True
@@ -239,6 +198,15 @@ isValidDateElementSequence a b =
             True
 
         ( Days _, Years _ ) ->
+            True
+
+        ( Minutes _, Hours _ ) ->
+            True
+
+        ( Seconds _, Minutes _ ) ->
+            True
+
+        ( Seconds _, Hours _ ) ->
             True
 
         _ ->
