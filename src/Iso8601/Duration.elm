@@ -24,10 +24,6 @@ initialDuration =
     }
 
 
-type WeekElement
-    = Weeks Float
-
-
 type Element
     = Years Float
     | Months Float
@@ -44,12 +40,9 @@ fromString duration =
 
     else if String.contains "W" duration then
         -- PnW
-        case Parser.run weekParser duration of
-            Ok (Weeks weeks) ->
-                Just { initialDuration | days = weeks * 7 }
-
-            Err _ ->
-                Nothing
+        Parser.run weekParser duration
+            |> Result.map (\weeks -> { initialDuration | days = weeks * 7 })
+            |> Result.toMaybe
 
     else
         -- PnYnMnDTnHnMnS
@@ -139,9 +132,9 @@ addElementsToDuration =
 -- Parsers
 
 
-weekParser : Parser WeekElement
+weekParser : Parser Float
 weekParser =
-    succeed Weeks
+    succeed identity
         |. symbol "P"
         |= float
         |. symbol "W"
