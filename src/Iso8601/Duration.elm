@@ -81,7 +81,7 @@ parseElements elementParser date =
     Result.toMaybe (Parser.run elementParser date)
         |> Maybe.andThen
             (\elements ->
-                if isOutOfOrder isValidElementSequence elements then
+                if isOutOfOrder elements then
                     Nothing
 
                 else
@@ -92,8 +92,8 @@ parseElements elementParser date =
 addElementsToDuration : Duration -> List Element -> Duration
 addElementsToDuration =
     let
-        addDateElementToDuration : Element -> Duration -> Duration
-        addDateElementToDuration element intermediateDuration =
+        addElementToDuration : Element -> Duration -> Duration
+        addElementToDuration element intermediateDuration =
             case element of
                 Years y ->
                     { intermediateDuration | years = y }
@@ -113,7 +113,7 @@ addElementsToDuration =
                 Seconds s ->
                     { intermediateDuration | seconds = s }
     in
-    List.foldr addDateElementToDuration
+    List.foldr addElementToDuration
 
 
 
@@ -194,24 +194,15 @@ isValidElementSequence a b =
             False
 
 
+isOutOfOrder : List Element -> Bool
+isOutOfOrder elements =
+    case elements of
+        x :: y :: xs ->
+            if not (isValidElementSequence x y) then
+                True
 
--- List util
+            else
+                isOutOfOrder (y :: xs)
 
-
-isOutOfOrder : (a -> a -> Bool) -> List a -> Bool
-isOutOfOrder compare elements =
-    let
-        isOutOfOrderHelper : List a -> Bool
-        isOutOfOrderHelper xs =
-            case xs of
-                x :: y :: others ->
-                    if not (compare x y) then
-                        True
-
-                    else
-                        isOutOfOrderHelper (y :: others)
-
-                _ ->
-                    False
-    in
-    isOutOfOrderHelper elements
+        _ ->
+            False
