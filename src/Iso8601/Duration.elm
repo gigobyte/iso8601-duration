@@ -1,11 +1,13 @@
-module Iso8601.Duration exposing (Duration, fromString, toString)
+module Iso8601.Duration exposing (Duration, fromString, toString, decoder, encode)
 
-{-| Convert ISO-8601 duration strings to a Duration value and vice versa.
+{-| Convert between ISO-8601 durations strings and `Duration` values.
 
-@docs Duration, fromString, toString
+@docs Duration, fromString, toString, decoder, encode
 
 -}
 
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Parser exposing ((|.), (|=), Parser, Step(..), end, float, loop, oneOf, problem, succeed, symbol)
 
 
@@ -40,7 +42,7 @@ type Element
     | Seconds Float
 
 
-{-| Convert ISO-8601 duration strings to a Duration value.
+{-| Convert from an ISO-8601 duration string to a `Duration` value.
 
 In case a week duration is given only the `days` property will be populated with the number of weeks \* 7.
 
@@ -89,9 +91,9 @@ fromString duration =
                 Nothing
 
 
-{-| Convert a Duration value to a ISO-8601 duration string.
+{-| Convert a `Duration` value to an ISO-8601 duration string.
 
-Week durations are not supported, even values with only days will still be serialized as `PnD`.
+Week durations are not supported, even values with `days` only will still be serialized as `PnD`.
 
 -}
 toString : Duration -> String
@@ -121,6 +123,29 @@ toString duration =
             else
                 ""
            )
+
+
+{-| Decode an ISO-8601 duration string to a `Duration` value using [`fromString`](#fromString).
+-}
+decoder : Decoder Duration
+decoder =
+    Decode.string
+        |> Decode.andThen
+            (\str ->
+                case fromString str of
+                    Just duration ->
+                        Decode.succeed duration
+
+                    Nothing ->
+                        Decode.fail "Invalid duration string"
+            )
+
+
+{-| Encode a `Duration` value as an ISO-8601 duration string using [`toString`](#toString).
+-}
+encode : Duration -> Encode.Value
+encode =
+    toString >> Encode.string
 
 
 parseElements : Parser (List Element) -> String -> Maybe (List Element)
