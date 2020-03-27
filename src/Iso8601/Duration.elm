@@ -55,34 +55,22 @@ fromString duration =
                 Nothing
 
             [ date, time ] ->
-                let
-                    dateElements =
-                        parseElements dateElementsParser date
-
-                    timeElements =
-                        parseElements timeElementsParser time
-                in
-                case ( dateElements, timeElements ) of
+                case ( parseElements dateElementsParser date, parseElements timeElementsParser time ) of
                     ( Just [], Just [] ) ->
                         Nothing
 
-                    _ ->
+                    ( dateElements, timeElements ) ->
                         dateElements
                             |> Maybe.map (addElementsToDuration initialDuration)
                             |> (\intermediateDuration -> Maybe.map2 addElementsToDuration intermediateDuration timeElements)
 
             [ date ] ->
-                let
-                    dateElements =
-                        parseElements dateElementsParser date
-                in
-                case dateElements of
+                case parseElements dateElementsParser date of
                     Just [] ->
                         Nothing
 
-                    _ ->
-                        dateElements
-                            |> Maybe.map (addElementsToDuration initialDuration)
+                    dateElements ->
+                        Maybe.map (addElementsToDuration initialDuration) dateElements
 
             _ ->
                 Nothing
