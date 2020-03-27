@@ -1,8 +1,15 @@
-module Iso8601.Duration exposing (Duration, fromString)
+module Iso8601.Duration exposing (Duration, fromString, toString)
+
+{-| Convert ISO-8601 duration strings to a Duration value and vice versa.
+
+@docs Duration, fromString, toString
+
+-}
 
 import Parser exposing ((|.), (|=), Parser, Step(..), end, float, loop, oneOf, problem, succeed, symbol)
 
 
+{-| -}
 type alias Duration =
     { years : Float
     , months : Float
@@ -33,6 +40,11 @@ type Element
     | Seconds Float
 
 
+{-| Convert ISO-8601 duration strings to a Duration value.
+
+In case a week duration is given only the `days` property will be populated with the number of weeks \* 7.
+
+-}
 fromString : String -> Maybe Duration
 fromString duration =
     if not (String.startsWith "P" duration) then
@@ -48,10 +60,11 @@ fromString duration =
         -- PnYnMnDTnHnMnS
         case duration |> String.replace "," "." |> String.split "T" of
             -- At least one element must be present, thus "P" is not a valid representation for a duration of 0 seconds
-            [ "P", "" ] ->
+            [ "P" ] ->
                 Nothing
 
-            [ "P" ] ->
+            -- T specified but not time components
+            [ date, "" ] ->
                 Nothing
 
             [ date, time ] ->
@@ -74,6 +87,40 @@ fromString duration =
 
             _ ->
                 Nothing
+
+
+{-| Convert a Duration value to a ISO-8601 duration string.
+
+Week durations are not supported, even values with only days will still be serialized as `PnD`.
+
+-}
+toString : Duration -> String
+toString duration =
+    let
+        timeElementsInDuration =
+            duration.hours > 0 || duration.minutes > 0 || duration.seconds > 0
+
+        elementToString : Float -> String -> String
+        elementToString value element =
+            if value == 0 then
+                ""
+
+            else
+                String.fromFloat value ++ element
+    in
+    "P"
+        ++ elementToString duration.years "Y"
+        ++ elementToString duration.months "M"
+        ++ elementToString duration.days "D"
+        ++ (if timeElementsInDuration then
+                "T"
+                    ++ elementToString duration.hours "H"
+                    ++ elementToString duration.minutes "M"
+                    ++ elementToString duration.seconds "S"
+
+            else
+                ""
+           )
 
 
 parseElements : Parser (List Element) -> String -> Maybe (List Element)
