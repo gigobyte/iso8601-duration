@@ -46,7 +46,7 @@ fromString duration =
 
     else
         -- PnYnMnDTnHnMnS
-        case String.split "T" (String.replace "," "." duration) of
+        case duration |> String.replace "," "." |> String.split "T" of
             -- At least one element must be present, thus "P" is not a valid representation for a duration of 0 seconds
             [ "P", "" ] ->
                 Nothing
